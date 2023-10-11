@@ -1,0 +1,38 @@
+variable "lb_count" {}
+
+resource "aws_lb" "default" {
+  count = var.lb_count
+  load_balancer_type = "application"
+  name               = "${var.prefix}-alb"
+
+  security_groups = [aws_security_group.default.id]
+  subnets         = [aws_subnet.public[0].id, aws_subnet.public[1].id]
+}
+
+resource "aws_lb_listener" "default" {
+  count = var.lb_count
+  load_balancer_arn = aws_lb[count.index].default.arn
+  port              = 80
+  protocol          = "HTTP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group[count.index].default.arn
+  }
+}
+
+
+resource "aws_lb_target_group" "default" {
+  count = var.lb_count
+  name     = "${var.prefix}-target"
+  port     = 80
+  protocol = "HTTP"
+  vpc_id   = aws_vpc.default.id
+}
+
+resource "aws_lb_target_group_attachment" "default" {
+  count            = var.lb_count == 0 ? 0 : var.ec2_count
+  target_group_arn = aws_lb_target_group.default[count.index].arn
+  target_id        = aws_instance.default[count.index].id
+  port             = 80
+}
